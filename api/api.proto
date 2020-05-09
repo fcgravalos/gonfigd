@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+service Gonfig {
+    rpc GetConfig (GetConfigRequest) returns (GetConfigResponse);
+    rpc WatchConfig (WatchConfigRequest) returns (stream WatchConfigResponse); 
+}
+
+message GetConfigRequest {
+    string configPath = 1;
+}
+
+message GetConfigResponse {
+    string config = 1;
+}
+
+message WatchConfigRequest {
+    string configPath = 1;
+}
+
+message WatchConfigResponse {
+    string subscriptionID = 1;
+    string event = 2;
+}
