@@ -1,14 +1,12 @@
 package kv
 
-import (
-	"fmt"
-)
-
 const (
 	INMEMORY Kind = "in-memory"
 )
 
-var supportedKVs map[Kind]struct{}
+var supportedKVs map[string]Kind = map[string]Kind{
+	"in-memory": INMEMORY,
+}
 
 type KV interface {
 	Put(k string, v *Value) error
@@ -18,15 +16,16 @@ type KV interface {
 
 type Kind string
 
-func init() {
-	supportedKVs = map[Kind]struct{}{INMEMORY: struct{}{}}
+func KVFromName(name string) (Kind, error) {
+	kind, ok := supportedKVs[name]
+	if !ok {
+		return kind, NewNotImplementedError(name)
+	}
+	return kind, nil
 }
 
 func NewKV(kind Kind) (KV, error) {
 	var kv KV
-	if _, ok := supportedKVs[kind]; !ok {
-		return nil, fmt.Errorf("KV %v not supported", kind)
-	}
 	switch kind {
 	case INMEMORY:
 		kv = &InMemory{Db: make(map[string]*Value)}

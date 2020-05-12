@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/fcgravalos/gonfigd/api"
 	"github.com/fcgravalos/gonfigd/fswatcher"
@@ -16,11 +17,12 @@ import (
 )
 
 type Config struct {
-	GrpcAddr   string
-	KvKind     kv.Kind
-	PsKind     pubsub.Kind
-	RootFolder string
-	Logger     zerolog.Logger
+	GrpcAddr       string
+	KvKind         kv.Kind
+	PsKind         pubsub.Kind
+	RootFolder     string
+	FsWalkInterval time.Duration
+	Logger         zerolog.Logger
 }
 
 func Start(ctx context.Context, waitChan chan struct{}, cfg Config) error {
@@ -45,7 +47,7 @@ func Start(ctx context.Context, waitChan chan struct{}, cfg Config) error {
 		defer wg.Done()
 		cfg.Logger.Info().
 			Msg("starting fswatcher")
-		if err := fswatcher.Start(ctx, cfg.RootFolder, kv, ps, cfg.Logger); err != nil {
+		if err := fswatcher.Start(ctx, cfg.RootFolder, cfg.FsWalkInterval, kv, ps, cfg.Logger); err != nil {
 			cfg.Logger.Fatal().Msgf("fswatcher returned with error: %v", err)
 		}
 	}(ctx)

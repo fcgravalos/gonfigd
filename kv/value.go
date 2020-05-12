@@ -19,17 +19,21 @@ type Value struct {
 
 func compressAndEncode(data []byte) (string, error) {
 	var b bytes.Buffer
-	gz, _ := gzip.NewWriterLevel(&b, flate.BestCompression)
-	if _, err := gz.Write(data); err != nil {
-		return "", err
+	gz, err := gzip.NewWriterLevel(&b, flate.BestCompression)
+	if err != nil {
+		return "", NewCompressionError(data, err)
 	}
 
-	if err := gz.Flush(); err != nil {
-		return "", err
+	if _, err = gz.Write(data); err != nil {
+		return "", NewCompressionError(data, err)
 	}
 
-	if err := gz.Close(); err != nil {
-		return "", err
+	if err = gz.Flush(); err != nil {
+		return "", NewCompressionError(data, err)
+	}
+
+	if err = gz.Close(); err != nil {
+		return "", NewCompressionError(data, err)
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
@@ -47,8 +51,16 @@ func NewValue(data []byte) (*Value, error) {
 	}, nil
 }
 
+func (v *Value) LastModified() time.Time {
+	return v.lastModified
+}
+
 func (v *Value) MD5() string {
 	return v.md5
+}
+
+func (v *Value) Data() string {
+	return v.data
 }
 
 func (v *Value) Text() string {

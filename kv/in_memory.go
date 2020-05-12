@@ -1,7 +1,6 @@
 package kv
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -24,7 +23,7 @@ func (im *InMemory) Put(key string, value *Value) error {
 func (im *InMemory) Get(key string) (*Value, error) {
 	v, ok := im.Db[key]
 	if !ok {
-		return nil, fmt.Errorf("key %s not found in gonfig db", key)
+		return nil, NewKeyNotFoundError(key)
 	}
 	return v, nil
 }
