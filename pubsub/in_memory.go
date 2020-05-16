@@ -3,8 +3,6 @@ package pubsub
 
 import (
 	"sync"
-
-	"github.com/google/uuid"
 )
 
 type subscriptions map[string]chan *Event
@@ -49,18 +47,24 @@ func (im *InMemory) Publish(topic string, ev *Event) error {
 }
 
 // Subscribe adds a new subscription to a topic,
-// returns the subscription ID and a subscription channel
-func (im *InMemory) Subscribe(topic string) (string, chan *Event) {
-	sID := uuid.New().String()
-	sCh := make(chan *Event)
+// returns the newly created Subscription object,
+// or NoSuchTopicError if the topic is not created yet
+func (im *InMemory) Subscribe(topic string) (*Subscription, error) {
+	if !im.TopicExists(topic) {
+		return nil, NewNoSuchTopicError(topic)
+	}
+	s := NewSubscription()
 	im.Lock()
-	im.pubsub[topic][sID] = sCh
+	im.pubsub[topic][s.ID()] = s.Channel()
 	im.Unlock()
-	return sID, sCh
+	return s, nil
 }
 
 // UnSubscribe removes a subscription from a topic
 func (im *InMemory) UnSubscribe(topic string, sID string) error {
+	if !im.TopicExists(topic) {
+		return NewNoSuchTopicError(topic)
+	}
 	im.Lock()
 	close(im.pubsub[topic][sID])
 	delete(im.pubsub[topic], sID)

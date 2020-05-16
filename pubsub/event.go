@@ -40,10 +40,10 @@ type Event struct {
 	createdAt time.Time
 }
 
-// CreateEvent returns a a pointer to Event type
+// NewEvent returns a pointer to Event type
 // kind EventType, the kind of Event
 // configPath string, the config path
-func CreateEvent(kind EventType, configPath string) *Event {
+func NewEvent(kind EventType, configPath string) *Event {
 	return &Event{kind: kind, configPath: configPath, createdAt: time.Now()}
 }
 

@@ -3,7 +3,6 @@ package fswatcher
 import (
 	"context"
 	"crypto/md5"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -56,7 +55,7 @@ func (r *registry) unregister(path string) {
 	r.Unlock()
 }
 
-func (fsw *fsWatcher) isValidFileName(name string) bool {
+func isValidFileName(name string) bool {
 	// Discard hidden files
 	if match, _ := filepath.Match("\\.*", name); match {
 		return false
@@ -67,12 +66,12 @@ func (fsw *fsWatcher) isValidFileName(name string) bool {
 	return true
 }
 
-func (fsw *fsWatcher) isValidFile(name string) bool {
+func isValidFile(name string) bool {
 	fi, err := os.Stat(name)
 	if err != nil {
 		return false
 	}
-	return fi.Mode().IsRegular() && fsw.isValidFileName(filepath.Base(name))
+	return fi.Mode().IsRegular() && isValidFileName(filepath.Base(name))
 }
 
 func (fsw *fsWatcher) upsertFileOnDb(path string) (bool, error) {
@@ -101,8 +100,8 @@ func (fsw *fsWatcher) walk(path string, fi os.FileInfo, err error) error {
 		fsw.log.Info().Msgf("adding watcher for %s", abs)
 		return fsw.watcher.Add(path)
 
-		// If it's a regular file, we don't have a have set a fsnotify watch but we check if it's stored in db
-	} else if fsw.isValidFile(path) {
+		// If it's a regular file, we don't have to set a fsnotify watch but we check if it's stored in db
+	} else if isValidFile(path) {
 		if _, err := fsw.kv.Get(path); err != nil {
 			fsw.log.Warn().Msgf("missing file %s in kv, inserting and creating event", path)
 			return fsw.createEventHandler(path)
@@ -112,7 +111,7 @@ func (fsw *fsWatcher) walk(path string, fi os.FileInfo, err error) error {
 }
 
 func (fsw *fsWatcher) publishEvent(config string, evType pubsub.EventType) error {
-	ev := pubsub.CreateEvent(evType, config)
+	ev := pubsub.NewEvent(evType, config)
 	if !fsw.ps.TopicExists(config) {
 		err := fsw.ps.CreateTopic(config)
 		if err != nil {
@@ -157,15 +156,15 @@ func (fsw *fsWatcher) removeEventHandler(name string) error {
 
 func (fsw *fsWatcher) routeEvent(ev fsnotify.Event) {
 	evOp := ev.Op.String()
-	err := errors.New("")
+	var err error
 	switch evOp {
 	case "CREATE":
-		if fsw.isValidFile(ev.Name) {
+		if isValidFile(ev.Name) {
 			err = fsw.createEventHandler(ev.Name)
 		}
 		break
 	case "WRITE":
-		if fsw.isValidFile(ev.Name) {
+		if isValidFile(ev.Name) {
 			err = fsw.writeEventHandler(ev.Name)
 		}
 		break
@@ -178,13 +177,13 @@ func (fsw *fsWatcher) routeEvent(ev fsnotify.Event) {
 	}
 
 	if err != nil {
-		fsw.log.Error().Msgf("error while handling %s event for %s: %v\n", evOp, ev.Name, err)
+		fsw.log.Error().Msgf("error while handling %s event for %s: %v", evOp, ev.Name, err)
 	}
 }
 
 // Start creates a new fsWatcher
 // It will return an error if it's not able to create a *fsnotify.Watcer
-func Start(ctx context.Context, root string, kv kv.KV, ps pubsub.PubSub, logger zerolog.Logger) error {
+func Start(ctx context.Context, root string, fwalkInterval time.Duration, kv kv.KV, ps pubsub.PubSub, logger zerolog.Logger) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logger.Error().Msgf("failed to create new fsnotify watcher: %v", err)
@@ -200,7 +199,7 @@ func Start(ctx context.Context, root string, kv kv.KV, ps pubsub.PubSub, logger 
 	go func(ctx context.Context, root string, fsw *fsWatcher, stopCh chan struct{}) {
 		for {
 			select {
-			case <-time.After(5 * time.Second):
+			case <-time.After(fwalkInterval):
 				fsw.log.Debug().Msgf("walking %s directory", root)
 				filepath.Walk(root, fsw.walk)
 				break

@@ -30,7 +30,9 @@ func (s *server) WatchConfig(req *WatchConfigRequest, stream Gonfig_WatchConfigS
 			return err
 		}
 	}
-	sID, sCh := s.Subscribe(req.ConfigPath)
+	sub, _ := s.Subscribe(req.ConfigPath)
+	sID := sub.ID()
+	sCh := sub.Channel()
 	defer s.UnSubscribe(req.ConfigPath, sID)
 
 	ctx := stream.Context()
@@ -42,7 +44,7 @@ func (s *server) WatchConfig(req *WatchConfigRequest, stream Gonfig_WatchConfigS
 				Event:          ev.String(),
 			}
 			if err := stream.Send(resp); err != nil {
-				s.Error().Msgf("failed to send response %v trhough stream: %v", resp, err)
+				s.Error().Msgf("failed to send response %v through stream: %v", resp, err)
 				return err
 			}
 			s.Info().Msgf("event %s sent to subscription ID %s", resp.Event, resp.SubscriptionID)
